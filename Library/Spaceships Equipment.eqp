@@ -1,0 +1,115 @@
+{
+	"version": 5,
+	"rows": [
+		{
+			"id": "EO0HHs2mY3LvQ8lTP",
+			"description": "Systems",
+			"legality_class": "4",
+			"quantity": 1,
+			"equipped": true,
+			"children": [
+				{
+					"id": "ex6j5QrSFFj8NGCy8",
+					"description": "Complex Item",
+					"reference": "B69",
+					"reference_highlight": "Nice",
+					"local_notes": "asdfasdf\n\u003cscript\u003e1+1\u003c/script\u003e",
+					"tech_level": "1+1^",
+					"legality_class": "4",
+					"tags": [
+						"foo",
+						"ba",
+						"r"
+					],
+					"base_value": "1+1",
+					"base_weight": "2+3",
+					"max_uses": 3,
+					"prereqs": {
+						"type": "prereq_list",
+						"all": true,
+						"when_tl": {
+							"compare": "is"
+						},
+						"prereqs": [
+							{
+								"type": "prereq_list",
+								"all": false,
+								"prereqs": [
+									{
+										"type": "script_prereq",
+										"script": "entity.exists ? \"oops\" : \"\""
+									}
+								]
+							},
+							{
+								"type": "trait_prereq",
+								"has": true,
+								"name": {
+									"compare": "is",
+									"qualifier": "foobar"
+								},
+								"level": {
+									"compare": "at_least",
+									"qualifier": 1
+								}
+							}
+						]
+					},
+					"ignore_weight_for_skills": true,
+					"vtt_notes": "asdfasdf",
+					"rated_strength": 10,
+					"quantity": 1,
+					"level": 3,
+					"uses": 1,
+					"equipped": true,
+					"calc": {
+						"value": 2,
+						"extended_value": 2,
+						"weight": "5 lb",
+						"extended_weight": "5 lb",
+						"extended_weight_for_skills": "0 lb",
+						"resolved_notes": "asdfasdf\n2"
+					}
+				},
+				{
+					"id": "EMJIRYBJXGUAClOIM",
+					"description": "Generic Spaceship System",
+					"legality_class": "4",
+					"tags": [
+						"Spaceships:System"
+					],
+					"base_value": "0",
+					"base_weight": "lib.systemSizeToWeight(self.level)",
+					"features": [
+						{
+							"type": "contained_weight_reduction",
+							"reduction": "100%"
+						}
+					],
+					"replacements": {
+						"Cost Multiplier": "0",
+						"Cost SM Offset": "0",
+						"System Name": "Cargo Hold",
+						"slots": "@slots@",
+						"stats": ""
+					},
+					"quantity": 1,
+					"level": 5,
+					"equipped": true,
+					"calc": {
+						"value": 0,
+						"extended_value": 0,
+						"weight": "0 lb",
+						"extended_weight": "0 lb"
+					}
+				}
+			],
+			"calc": {
+				"value": 0,
+				"extended_value": 2,
+				"weight": "0 lb",
+				"extended_weight": "5 lb"
+			}
+		}
+	]
+}
