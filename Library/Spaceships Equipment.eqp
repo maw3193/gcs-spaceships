@@ -13,12 +13,12 @@
 					"description": "Complex Item",
 					"reference": "B69",
 					"reference_highlight": "Nice",
-					"local_notes": "asdfasdf\n\u003cscript\u003e1+1\u003c/script\u003e",
+					"local_notes": "asdfasdf\n\u003cscript\u003e1+1\u003c/script\u003e\nbut also \u003cscript\u003e\"lol, lmao\"\u003c/script\u003e",
 					"tech_level": "1+1^",
 					"legality_class": "4",
 					"tags": [
-						"foo",
 						"ba",
+						"foo",
 						"r"
 					],
 					"base_value": "1+1",
@@ -68,7 +68,7 @@
 						"weight": "5 lb",
 						"extended_weight": "5 lb",
 						"extended_weight_for_skills": "0 lb",
-						"resolved_notes": "asdfasdf\n2"
+						"resolved_notes": "asdfasdf\n2\nbut also lol, lmao"
 					}
 				},
 				{
