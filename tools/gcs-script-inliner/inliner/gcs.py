@@ -39,7 +39,7 @@ def mutate_scripted_string(s: str, mutator: ScriptMutator) -> str:
         return "<script>" + mutator(match.group(1)) + "</script>"
     script_expr = r"<script>(.*?)</script>"
 
-    new = re.sub(script_expr, mutate_match, s)
+    new = re.sub(script_expr, mutate_match, s, flags=re.DOTALL)
     return new
 
 
