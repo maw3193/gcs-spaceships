@@ -5,9 +5,8 @@ description = "Inserts scripts from a .js file into their place in gcs files"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mashumaro[yaml]>=3.22",
     "pydantic-yaml>=1.6.0",
-    "ruamel-yaml>=0.18.17",
     "ruff>=0.15.14",
+    "slimit3k>=0.9.0",
     "ty>=0.0.39",
 ]
