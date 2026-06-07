@@ -16,7 +16,7 @@ def inline(config: Config) -> None:
     for file_path in gcs_library_files(config.libraries):
         equipment = EquipmentList.model_validate_json(file_path.read_text())
         equipment.mutate_scripts(str.upper)
-        print(equipment)
+        file_path.write_text(equipment.model_dump_json())
 
     # Ok, I have enough gcs processing to see how this'll work. I need to parse an manipulate gcs files.
     

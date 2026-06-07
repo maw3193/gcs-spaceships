@@ -36,7 +36,7 @@ def gcs_library_files(paths: list[Path]):
 
 def mutate_scripted_string(s: str, mutator: ScriptMutator) -> str:
     def mutate_match(match):
-        return mutator(match.group(0))
+        return "<script>" + mutator(match.group(1)) + "</script>"
     script_expr = r"<script>(.*?)</script>"
 
     new = re.sub(script_expr, mutate_match, s)
@@ -65,7 +65,7 @@ class EquipmentItem(BaseModel):
     prereqs: Optional[PrereqList] = None  # prereqs may contain scripts
     weapons: Optional[list[Weapon]] = None  # weapons may contain scripts
     modifiers: list[EquipmentModifier] = [] # modifiers may contain scripts
-    children: Optional[list[Self]]= None 
+    children: Optional[list[Self]] = None 
 
     model_config = ConfigDict(extra="allow")
 
