@@ -6,15 +6,36 @@ The central point for javascript-based operations
 import json
 from collections.abc import Sequence
 from itertools import chain
-from pydantic import BaseModel
+from pathlib import Path
 from slimit import minify
 from slimit.ast import Catch, DotAccessor, FuncBase, Identifier, Node, Program, VarDecl
 import slimit.parser
 
 
-class SourceJavascriptItem(BaseModel):
+class SourceJavascriptItem(object):
     node: Node
     missing: list[Node]
+
+    def __init__(self, node, missing):
+        self.node = node
+        self.missing = missing
+
+
+def is_js_file(path: Path) -> bool:
+    return path.is_file() and path.suffix in (".js")
+
+
+def javascript_files(paths: list[Path]):
+    for js_path in paths:
+        if is_js_file(js_path):
+            yield js_path
+            continue
+
+        for dir_path, _, files in js_path.walk():
+            for file in files:
+                file_path = dir_path / file
+                if is_js_file(file_path):
+                    yield file_path
 
 
 # based on slimit.ast's declaration of an identifier as _mangle_candidate
@@ -75,6 +96,12 @@ def display_node(node):
             d[k] = v
     return d
 
+
+def collect_source_javascript(text: str) -> dict[str, SourceJavascriptItem]:
+    program = slimit.parser.Parser().parse(text)
+    # Assume they're all declared as top-level items because I can't imagine them not being.
+    print(json.dumps(display_node(program), indent=2))
+    
 
 def inline_javascript(text: str) -> str:
     #print("***INPUT CODE***")
