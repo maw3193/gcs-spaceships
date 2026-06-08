@@ -5,30 +5,59 @@ The central point for javascript-based operations
 """
 import json
 from collections.abc import Sequence
+from itertools import chain
+from pydantic import BaseModel
 from slimit import minify
-from slimit.ast import Identifier, Node, Program
+from slimit.ast import Catch, DotAccessor, FuncBase, Identifier, Node, Program, VarDecl
 import slimit.parser
 
 
-def find_identifiers(node):
+class SourceJavascriptItem(BaseModel):
+    node: Node
+    missing: list[Node]
+
+
+# based on slimit.ast's declaration of an identifier as _mangle_candidate
+def find_declared_identifiers(node):
+    if isinstance(node, VarDecl):
+        yield node.identifier
+    elif isinstance(node, Catch):
+        yield node.identifier
+    elif isinstance(node, FuncBase):
+        yield node.identifier
+        for param in node.parameters:
+            yield param
+    else:
+        for child in node.children():
+            yield from find_declared_identifiers(child)
+
+
+# any instance of Identifier that's not declaring one is using one
+# dot accessors of foo.bar we only care about the foo.
+def find_used_identifiers(node):
     if isinstance(node, Identifier):
         yield node
+    elif isinstance(node, VarDecl):
+        yield from find_used_identifiers(node.initializer)
+    elif isinstance(node, Catch):
+        for element in node.elements:
+            yield from find_used_identifiers(element)
+    elif isinstance(node, FuncBase):
+        for element in node.elements:
+            yield from find_used_identifiers(element)
+    elif isinstance(node, DotAccessor):
+        yield node.node
+    else:
+        for child in node.children():
+            yield from find_used_identifiers(child)
 
-    for child in node.children():
-        yield from find_identifiers(child)
+
+def find_identifiers(node):
+    return chain(find_declared_identifiers(node), find_used_identifiers(node))
 
 
-def declared_identifiers(identifiers: Sequence[Identifier]) -> set[str]:
-    return set(i.value for i in identifiers if getattr(i, "_mangle_candidate", False))
-
-
-def used_identifiers(identifiers: Sequence[Identifier]) -> set[str]:
-    return set(i.value for i in identifiers if not getattr(i, "_mangle_candidate", False))
-
-
-def missing_identifiers(identifiers: Sequence[Identifier]) -> set[str]:
-    identifiers = list(identifiers)
-    return used_identifiers(identifiers) - declared_identifiers(identifiers)
+def find_missing_identifiers(node) -> set[str]:
+    return set(i.value for i in find_used_identifiers(node)) - set(i.value for i in find_declared_identifiers(node))
 
 
 def display_node(node):
@@ -54,8 +83,14 @@ def inline_javascript(text: str) -> str:
     print("***PROGRAM***")
     print(program.to_ecma())
     print("***IDENTIFIERS**")
-    identifiers = list(find_identifiers(program))
-    print("Declared:", declared_identifiers(identifiers), "Used:", used_identifiers(identifiers), "Missing:", missing_identifiers(identifiers))
+    #print(list(find_identifiers(program)))
+    identifiers = list((i.value, getattr(i, "_mangle_candidate", None)) for i in find_identifiers(program))
+    print(identifiers)
+    print(
+        "Declared:", [i.value for i in find_declared_identifiers(program)],
+        "Used:", [i.value for i in find_used_identifiers(program)],
+        "Missing:", find_missing_identifiers(program),
+    )
     #print("***AST***")
     #print(json.dumps(display_node(program), indent=2))
     print("***")
