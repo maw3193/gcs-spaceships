@@ -37,6 +37,9 @@ class SourceJavascriptItem(object):
         return self.__str__()
 
 
+type SourceJavascriptDict = dict[str, SourceJavascriptItem]
+
+
 def is_js_file(path: Path) -> bool:
     return path.is_file() and path.suffix in (".js")
 
@@ -78,11 +81,18 @@ def find_missing_identifiers(root: Node) -> set[str]:
     return set(i.text.decode("utf-8") for i in find_used_identifiers(root)) - set(i.text.decode("utf-8") for i in find_declared_identifiers(root))
 
 
+def get_missing_identifiers(text: str) -> set[str]:
+    parser = Parser(JS_LANGUAGE)
+    tree = parser.parse(bytes(text, "utf8"))
+    program = tree.root_node
+    return find_missing_identifiers(program)
+
+
 def display_node(node):
     return str(node)
 
 
-def collect_source_javascript(text: str) -> dict[str, SourceJavascriptItem]:
+def collect_source_javascript(text: str) -> SourceJavascriptDict:
     parser = Parser(JS_LANGUAGE)
     tree = parser.parse(bytes(text, "utf8"))
     program = tree.root_node
@@ -101,37 +111,35 @@ def collect_source_javascript(text: str) -> dict[str, SourceJavascriptItem]:
             missing = find_missing_identifiers(child)
             sources[identifier_name] = SourceJavascriptItem(child, missing)
         else:
-            sys.stderr.write(f"Unexpected code! what am I supposed to do with {child.text.decode('utf-8')}")
+            sys.stderr.write(f"Unexpected code! what am I supposed to do with {child.text.decode('utf-8')}\n")
 
     print(sources)
     return sources
 
-    # # Assume they're all declared as top-level items because I can't imagine them not being.
-    # print("*** SOURCE PROGRAM")
-    # print(program.text.decode("utf-8"))
-    # print("*** SOURCE AST")
-    # print(display_node(program))
-    # print("***SOURCE IDENTIFIERS**")
-    # print(
-    #     "Declared:", [i.text.decode("utf-8") for i in find_declared_identifiers(program)],
-    #     "Used:", [i.text.decode("utf-8") for i in find_used_identifiers(program)],
-    #     "Missing:", find_missing_identifiers(program),
-    # )
-    
 
-def inline_javascript(text: str) -> str:
-    parser = Parser(JS_LANGUAGE)
-    tree = parser.parse(bytes(text, "utf8"))
-    program = tree.root_node
-    # print("***PROGRAM***")
-    # print(program.text.decode("utf-8"))
-    # print("***IDENTIFIERS**")
-    # print(
-    #     "Declared:", [i.text.decode("utf-8") for i in find_declared_identifiers(program)],
-    #     "Used:", [i.text.decode("utf-8") for i in find_used_identifiers(program)],
-    #     "Missing:", find_missing_identifiers(program),
-    # )
-    # print("***AST***")
-    # print(display_node(program))
-    # print("***")
-    return text
+def total_used_identifiers(missing: Sequence[str], extra_sources: SourceJavascriptDict) -> Sequence[str]:
+    used = set(missing)
+    for source in extra_sources.values():
+        used |= source.missing
+    return used
+
+
+def unsatisfiable_identifiers(missing: Sequence[str], extra_sources: SourceJavascriptDict) -> Sequence[str]:
+    return set(total_used_identifiers) - set(extra_sources.keys())
+
+
+def satisfy_missing_identifiers(missing: Sequence[str], extra_sources: SourceJavascriptDict) -> str:
+    missing = list(missing)
+    keys = []
+    while missing:
+        new_miss = missing.pop()
+        if new_miss in keys:
+            # already satisfied
+            continue
+        if new_miss not in extra_sources:
+            sys.stderr.write(f"Can't satisfy {new_miss}\n")
+            continue
+        source = extra_sources[new_miss]
+        missing.extend(source.missing)
+        keys.append(new_miss)
+    return "\n".join(extra_sources[key].node.text.decode("utf-8") for key in keys)
