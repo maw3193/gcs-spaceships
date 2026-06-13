@@ -7,18 +7,34 @@ import json
 from collections.abc import Sequence
 from itertools import chain
 from pathlib import Path
-from slimit import minify
-from slimit.ast import Catch, DotAccessor, FuncBase, Identifier, Node, Program, VarDecl
-import slimit.parser
+import sys
+from typing import Generator
 
+from tree_sitter import Language, Node, Parser, Tree
+import tree_sitter_javascript as tsjs
+
+JS_LANGUAGE = Language(tsjs.language())
+
+# any identifiers used directly inside one of these is being declared instead of being used
+DECLARATION_TYPES = (
+    "variable_declarator", # var foo = 1
+    "function_declaration", # function foo(...)
+    "formal_parameters", # function ...(foo=1)
+)
 
 class SourceJavascriptItem(object):
     node: Node
-    missing: list[Node]
+    missing: Sequence[str] # names of identifiers used but not defined in this node
 
     def __init__(self, node, missing):
         self.node = node
         self.missing = missing
+
+    def __str__(self):
+        return f"(node: {self.node.type}, missing: {self.missing})"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def is_js_file(path: Path) -> bool:
@@ -38,87 +54,84 @@ def javascript_files(paths: list[Path]):
                     yield file_path
 
 
-# based on slimit.ast's declaration of an identifier as _mangle_candidate
-def find_declared_identifiers(node):
-    if isinstance(node, VarDecl):
-        yield node.identifier
-    elif isinstance(node, Catch):
-        yield node.identifier
-    elif isinstance(node, FuncBase):
-        yield node.identifier
-        for param in node.parameters:
-            yield param
-    else:
-        for child in node.children():
-            yield from find_declared_identifiers(child)
+def traverse_tree(node: Node) -> Generator[Node, None, None]:
+    yield node
+    for child in node.children:
+        yield from traverse_tree(child)
 
 
-# any instance of Identifier that's not declaring one is using one
-# dot accessors of foo.bar we only care about the foo.
-def find_used_identifiers(node):
-    if isinstance(node, Identifier):
-        yield node
-    elif isinstance(node, VarDecl):
-        yield from find_used_identifiers(node.initializer)
-    elif isinstance(node, Catch):
-        for element in node.elements:
-            yield from find_used_identifiers(element)
-    elif isinstance(node, FuncBase):
-        for element in node.elements:
-            yield from find_used_identifiers(element)
-    elif isinstance(node, DotAccessor):
-        yield node.node
-    else:
-        for child in node.children():
-            yield from find_used_identifiers(child)
+def find_declared_identifiers(root: Node) -> list[Node]:
+    # any identifier inside a variable_declarator or function_declaration.
+    return [node for node in traverse_tree(root) if node.type == "identifier" and node.parent.type in DECLARATION_TYPES]
 
 
-def find_identifiers(node):
-    return chain(find_declared_identifiers(node), find_used_identifiers(node))
+def find_used_identifiers(root: Node):
+    # any identifier that's in something other than a variable_declarator or function_declarator.
+    return [node for node in traverse_tree(root) if node.type == "identifier" and node.parent.type not in DECLARATION_TYPES]
 
 
-def find_missing_identifiers(node) -> set[str]:
-    return set(i.value for i in find_used_identifiers(node)) - set(i.value for i in find_declared_identifiers(node))
+def find_identifiers(root: Node):
+    return [node for node in traverse_tree(root) if node.type == "identifier"]
+
+
+def find_missing_identifiers(root: Node) -> set[str]:
+    return set(i.text.decode("utf-8") for i in find_used_identifiers(root)) - set(i.text.decode("utf-8") for i in find_declared_identifiers(root))
 
 
 def display_node(node):
-    if not hasattr(node, "__dict__"):
-        return node
-
-    d = {}
-    d["name"] = node.__class__.__name__
-    for k, v in node.__dict__.items():
-        if hasattr(v, "__dict__"):
-            d[k] = display_node(v)
-        elif isinstance(v, list):
-            d[k] = [display_node(i) for i in v]
-        else:
-            d[k] = v
-    return d
+    return str(node)
 
 
 def collect_source_javascript(text: str) -> dict[str, SourceJavascriptItem]:
-    program = slimit.parser.Parser().parse(text)
-    # Assume they're all declared as top-level items because I can't imagine them not being.
-    print(json.dumps(display_node(program), indent=2))
+    parser = Parser(JS_LANGUAGE)
+    tree = parser.parse(bytes(text, "utf8"))
+    program = tree.root_node
+    sources = {}
+    for child in program.children:
+        if child.type == "variable_declaration":
+            # child.children[0] is "let", "var" or "const"
+            # child.children[1] should be a variable declarator
+            assert child.children[1].type == "variable_declarator"
+            # assuming it's not declaring multiple at once
+            identifier_name = child.children[1].children[0].text.decode("utf-8")
+            missing = find_missing_identifiers(child)
+            sources[identifier_name] = SourceJavascriptItem(child, missing)
+        elif child.type == "function_declaration":
+            identifier_name = child.child_by_field_name("name").text.decode("utf-8")
+            missing = find_missing_identifiers(child)
+            sources[identifier_name] = SourceJavascriptItem(child, missing)
+        else:
+            sys.stderr.write(f"Unexpected code! what am I supposed to do with {child.text.decode('utf-8')}")
+
+    print(sources)
+    return sources
+
+    # # Assume they're all declared as top-level items because I can't imagine them not being.
+    # print("*** SOURCE PROGRAM")
+    # print(program.text.decode("utf-8"))
+    # print("*** SOURCE AST")
+    # print(display_node(program))
+    # print("***SOURCE IDENTIFIERS**")
+    # print(
+    #     "Declared:", [i.text.decode("utf-8") for i in find_declared_identifiers(program)],
+    #     "Used:", [i.text.decode("utf-8") for i in find_used_identifiers(program)],
+    #     "Missing:", find_missing_identifiers(program),
+    # )
     
 
 def inline_javascript(text: str) -> str:
-    #print("***INPUT CODE***")
-    #print(text)
-    program = slimit.parser.Parser().parse(text)
-    print("***PROGRAM***")
-    print(program.to_ecma())
-    print("***IDENTIFIERS**")
-    #print(list(find_identifiers(program)))
-    identifiers = list((i.value, getattr(i, "_mangle_candidate", None)) for i in find_identifiers(program))
-    print(identifiers)
-    print(
-        "Declared:", [i.value for i in find_declared_identifiers(program)],
-        "Used:", [i.value for i in find_used_identifiers(program)],
-        "Missing:", find_missing_identifiers(program),
-    )
-    #print("***AST***")
-    #print(json.dumps(display_node(program), indent=2))
-    print("***")
+    parser = Parser(JS_LANGUAGE)
+    tree = parser.parse(bytes(text, "utf8"))
+    program = tree.root_node
+    # print("***PROGRAM***")
+    # print(program.text.decode("utf-8"))
+    # print("***IDENTIFIERS**")
+    # print(
+    #     "Declared:", [i.text.decode("utf-8") for i in find_declared_identifiers(program)],
+    #     "Used:", [i.text.decode("utf-8") for i in find_used_identifiers(program)],
+    #     "Missing:", find_missing_identifiers(program),
+    # )
+    # print("***AST***")
+    # print(display_node(program))
+    # print("***")
     return text
