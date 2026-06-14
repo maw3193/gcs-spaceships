@@ -17,6 +17,18 @@ type ScriptMutator = Callable[[str], str]
 GCS_FILE_EXTENSIONS = (".eqp")
 
 
+GCS_BUILTINS = frozenset((
+    "console",
+    "dice",
+    "entity",
+    "measure",
+    "self",
+    "formatNum",
+    "iff",
+    "signedValue",
+))
+
+
 def is_gcs_file(path: Path) -> bool:
     return path.is_file() and path.suffix in GCS_FILE_EXTENSIONS
 

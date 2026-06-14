@@ -26,12 +26,12 @@ def inline(config: Config) -> None:
     src_js = dict()
     for file_path in js_files:
         # I haven't decided how to handle output yet
-        src_js |= collect_source_javascript(file_path.read_text())
+        src_js |= collect_source_javascript(file_path.read_text(), config.builtin_identifiers)
 
     def inline_script(text: str) -> str:
         text = strip_library_identifiers(text, src_js)
-        missing = get_missing_identifiers(text)
-        prepend = satisfy_missing_identifiers(missing, src_js)
+        missing = get_missing_identifiers(text, config.builtin_identifiers)
+        prepend = satisfy_missing_identifiers(missing, src_js, config.builtin_identifiers)
         if prepend:
             text = prepend + "\n" + text
         return text
