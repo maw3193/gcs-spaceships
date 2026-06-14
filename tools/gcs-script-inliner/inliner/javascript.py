@@ -83,6 +83,7 @@ def find_missing_identifiers(root: Node) -> set[str]:
 
 
 def get_missing_identifiers(text: str) -> set[str]:
+    """Parse the text as a javascript program, listing the identifiers that are used but not declared in the text"""
     parser = Parser(JS_LANGUAGE)
     tree = parser.parse(bytes(text, "utf8"))
     program = tree.root_node
@@ -94,9 +95,11 @@ def display_node(node):
 
 
 def collect_source_javascript(text: str) -> SourceJavascriptDict:
+    """Parse the text as a javascript program, providing top-level identifiers of the program, alongside lists of identifiers used outside of those declarations"""
     parser = Parser(JS_LANGUAGE)
     tree = parser.parse(bytes(text, "utf8"))
     program = tree.root_node
+    print("*** SOURCE AST", program)
     sources = {}
     for child in program.children:
         if child.type == "variable_declaration":
@@ -114,11 +117,11 @@ def collect_source_javascript(text: str) -> SourceJavascriptDict:
         else:
             sys.stderr.write(f"Unexpected code! what am I supposed to do with {child.text.decode('utf-8')}\n")
 
-    print(sources)
     return sources
 
 
 def total_used_identifiers(missing: Sequence[str], extra_sources: SourceJavascriptDict) -> Sequence[str]:
+    """Identifiers used by `missing` or `extra_sources`"""
     used = set(missing)
     for source in extra_sources.values():
         used |= source.missing
@@ -126,10 +129,12 @@ def total_used_identifiers(missing: Sequence[str], extra_sources: SourceJavascri
 
 
 def unsatisfiable_identifiers(missing: Sequence[str], extra_sources: SourceJavascriptDict) -> Sequence[str]:
+    """Identifiers used by `missing` or `extra_sources` that aren't also provided by `extra_sources`"""
     return set(total_used_identifiers) - set(extra_sources.keys())
 
 
 def satisfy_missing_identifiers(missing: Sequence[str], extra_sources: SourceJavascriptDict) -> str:
+    """Generate text of javascript code that provides every identifier requested in `missing` using identifiers provided by `extra_sources`. If a declaration from extra_sources requires extra identifiers, add those too."""
     missing = list(missing)
     keys = []
     while missing:
@@ -144,3 +149,22 @@ def satisfy_missing_identifiers(missing: Sequence[str], extra_sources: SourceJav
         missing.extend(source.missing)
         keys.append(new_miss)
     return "\n".join(extra_sources[key].node.text.decode("utf-8") for key in keys)
+
+def strip_library_identifiers(text: str, library: SourceJavascriptDict) -> str:
+    """Generate text of javascript code that removes all top-level declarations that are also provided by `library`. This is intended to be used to remove variables and functions provided by `library`, before adding more recent versions."""
+    parser = Parser(JS_LANGUAGE)
+    tree = parser.parse(bytes(text, "utf8"))
+    program = tree.root_node
+    keep_text = []
+    for node in program.children:
+        if node.type == "variable_declaration":
+            name = node.children[1].children[0].text.decode("utf-8")
+            if name in library:
+                continue
+        elif node.type == "function_declaration":
+            name = node.child_by_field_name("name").text.decode("utf-8")
+            if name in library:
+                continue
+        keep_text.append(node.text.decode("utf-8"))
+
+    return "\n".join(keep_text)

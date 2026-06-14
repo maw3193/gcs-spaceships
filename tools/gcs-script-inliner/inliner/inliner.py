@@ -13,6 +13,7 @@ from .javascript import (
     get_missing_identifiers,
     javascript_files,
     satisfy_missing_identifiers,
+    strip_library_identifiers,
     unsatisfiable_identifiers,
 )
 
@@ -28,9 +29,9 @@ def inline(config: Config) -> None:
         src_js |= collect_source_javascript(file_path.read_text())
 
     def inline_script(text: str) -> str:
+        text = strip_library_identifiers(text, src_js)
         missing = get_missing_identifiers(text)
         prepend = satisfy_missing_identifiers(missing, src_js)
-        # TODO: strip duplicates
         if prepend:
             text = prepend + "\n" + text
         return text
