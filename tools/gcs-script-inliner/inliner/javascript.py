@@ -19,7 +19,8 @@ JS_LANGUAGE = Language(tsjs.language())
 DECLARATION_TYPES = (
     "variable_declarator", # var foo = 1
     "function_declaration", # function foo(...)
-    "formal_parameters", # function ...(foo=1)
+    "formal_parameters", # function ...(foo)
+    "assignment_pattern" # function ...(foo=1)
 )
 
 class SourceJavascriptItem(object):
