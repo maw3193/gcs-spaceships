@@ -191,7 +191,6 @@ def collect_source_javascript(text: str, builtins: Sequence[str]) -> SourceJavas
     parser = Parser(JS_LANGUAGE)
     tree = parser.parse(bytes(text, "utf8"))
     program = tree.root_node
-    print("*** SOURCE AST", program)
     sources = {}
     for child in program.children:
         if child.type == "variable_declaration":
