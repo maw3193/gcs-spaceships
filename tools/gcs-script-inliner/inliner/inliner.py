@@ -14,6 +14,7 @@ from .javascript import (
     javascript_files,
     satisfy_missing_identifiers,
     strip_library_identifiers,
+    strip_unused_identifiers,
     unsatisfiable_identifiers,
 )
 
@@ -30,6 +31,7 @@ def inline(config: Config) -> None:
 
     def inline_script(text: str) -> str:
         text = strip_library_identifiers(text, src_js)
+        text = strip_unused_identifiers(text)
         missing = get_missing_identifiers(text, config.builtin_identifiers)
         prepend = satisfy_missing_identifiers(missing, src_js, config.builtin_identifiers)
         if prepend:

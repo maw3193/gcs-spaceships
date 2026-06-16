@@ -13,7 +13,7 @@
 					"description": "Complex Item",
 					"reference": "B69",
 					"reference_highlight": "Nice",
-					"local_notes": "asdfasdf\n\u003cscript\u003e\nvar foo = 1;\nfunction bar(n) {\n  return n*2;\n}\nfoo + bar(1)\n\u003c/script\u003e",
+					"local_notes": "asdfasdf\n\u003cscript\u003e\nconst unused = \"true\";\nfunction unused_func() {\n  return 0;\n}\nvar foo = 1;\nfunction bar(n) {\n  return n*2;\n}\nfoo + bar(1)\u003c/script\u003e",
 					"tech_level": "1+1^",
 					"legality_class": "4",
 					"tags": [

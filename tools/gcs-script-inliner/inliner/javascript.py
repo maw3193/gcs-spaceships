@@ -18,6 +18,7 @@ JS_LANGUAGE = Language(tsjs.language())
 # any identifiers used directly inside one of these is being declared instead of being used
 DECLARATION_TYPES = (
     "variable_declarator", # var foo = 1
+    "lexical_declaration", # const foo = 1
     "function_declaration", # function foo(...)
     "formal_parameters", # function ...(foo)
     "assignment_pattern" # function ...(foo=1)
@@ -157,12 +158,12 @@ def find_declared_identifiers(root: Node) -> list[Node]:
     return [node for node in traverse_tree(root) if node.type == "identifier" and node.parent.type in DECLARATION_TYPES]
 
 
-def find_used_identifiers(root: Node):
+def find_used_identifiers(root: Node) -> list[Node]:
     # any identifier that's in something other than a variable_declarator or function_declarator.
     return [node for node in traverse_tree(root) if node.type == "identifier" and node.parent.type not in DECLARATION_TYPES]
 
 
-def find_identifiers(root: Node):
+def find_identifiers(root: Node) -> list[Node]:
     return [node for node in traverse_tree(root) if node.type == "identifier"]
 
 
@@ -258,4 +259,28 @@ def strip_library_identifiers(text: str, library: SourceJavascriptDict) -> str:
                 continue
         keep_text.append(node.text.decode("utf-8"))
 
+    return "\n".join(keep_text)
+
+def strip_unused_identifiers(text: str) -> str:
+    """Finds every identifier used in the javascript code, and every top-level identifier declared.
+    If an identifier is declared but not used, delete it.
+    This is useful for cleaning up code that was inlined from the library but no longer used (e.g. function in the library was renamed or deleted)
+    """
+    parser = Parser(JS_LANGUAGE)
+    tree = parser.parse(bytes(text, "utf8"))
+    program = tree.root_node
+    used_names = [n.text for n in find_used_identifiers(program)]
+    keep_text = []
+    for node in program.children:
+        if node.type in ("variable_declaration", "lexical_declaration"):
+            name = node.children[1].children[0].text
+            if name not in used_names:
+                # This variable declaration is not used
+                continue
+        elif node.type == "function_declaration":
+            name = node.child_by_field_name("name").text
+            if name not in used_names:
+                # This function declaration is not used
+                continue
+        keep_text.append(node.text.decode("utf-8"))
     return "\n".join(keep_text)
